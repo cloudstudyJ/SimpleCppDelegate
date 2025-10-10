@@ -2,6 +2,8 @@
 
 #include <functional>
 
+#include "typeTraits.hpp"
+
 #define NO_COPY_AND_MOVE(ClassName)                         \
     ClassName(const ClassName&) = delete;                   \
     ClassName(ClassName&&) noexcept = delete;               \
@@ -23,7 +25,8 @@ class Delegate {
         template <typename ClassType>
         void bind(ClassType* instance, void (ClassType::*method)(Args...));
 
-        void execute(Args&&... args);
+        template <typename ... CallArgs>
+        void execute(CallArgs&&... args);
 
         inline constexpr unsigned int argsCount() const noexcept;
 
@@ -45,10 +48,19 @@ void Delegate<Args...>::bind(ClassType* instance, void (ClassType::*method)(Args
     };
 }
 
-template <typename ... Args>
-void Delegate<Args...>::execute(Args&&... args) {
+template <typename ... Args> template <typename ... CallArgs>
+void Delegate<Args...>::execute(CallArgs&&... args) {
+    static_assert(
+        sizeof...(Args) == sizeof...(CallArgs),
+        "Delegate::execute() called with wrong number of arguments"
+    );
+    static_assert(
+        areSame<TypeList<RemoveCR<Args>...>, TypeList<RemoveCR<CallArgs>...>>,
+        "Delegate::execute() called with incompatible argument types"
+    );
+
     if (mFunction)
-        mFunction(std::forward<Args>(args)...);
+        mFunction(std::forward<CallArgs>(args)...);
 }
 
 template <typename ... Args>
