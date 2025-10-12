@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-
 #include "typeTraits.hpp"
 
 #define NO_COPY_AND_MOVE(ClassName)                         \
@@ -10,58 +8,100 @@
     ClassName& operator=(const ClassName&) = delete;        \
     ClassName& operator=(ClassName&&) noexcept = delete;
 
-template <typename ... Args>
-class Delegate {
+#define NO_DYNAMIC_ALLOCATION()                             \
+    void* operator new(unsigned long long size) = delete;   \
+    void* operator new[](unsigned long long size) = delete; \
+    void operator delete(void* ptr) noexcept = delete;      \
+    void operator delete[](void* ptr) noexcept = delete;
+
+#define NO_INSTANTIATION(ClassName) \
+    ClassName() = delete;           \
+    ~ClassName() = delete;          \
+    NO_COPY_AND_MOVE(ClassName)     \
+    NO_DYNAMIC_ALLOCATION()
+
+template <typename, typename = void>
+class Delegate { NO_INSTANTIATION(Delegate); };
+
+template <typename Func>
+class Delegate<Func, EnableIF<isFunction<Func>>> {
     NO_COPY_AND_MOVE(Delegate);
+
+    using Traits     = FuncTraits<Func>;
+    using ReturnType = Traits::ReturnType;
+    using FuncType   = Traits::Type;
 
     public:
         Delegate() noexcept = default;
-        Delegate(std::function<void (Args...)> func);
-        template <typename ClassType>
-        Delegate(ClassType* instance, void (ClassType::*method)(Args...));
         ~Delegate() noexcept = default;
 
-        void bind(std::function<void (Args...)> func);
-        template <typename ClassType>
-        void bind(ClassType* instance, void (ClassType::*method)(Args...));
+        template <typename ... Args>
+        inline ReturnType operator()(Args&&... args) const;
 
-        template <typename ... CallArgs>
-        void execute(CallArgs&&... args);
+        void bind(Func func) noexcept { mFunction = func; }
 
-        inline constexpr unsigned int argsCount() const noexcept;
+        template <typename ... Args>
+        inline ReturnType execute(Args&&... args) const {
+            // compare types with decayed?
+            static_assert(
+                areSame<typename Traits::ArgsList, TypeList<Args...>>,
+                "Delegate::execute() called with wrong number of arguments or different types"
+            );
+
+            // when ReturnType is void -> ?
+
+            if (mFunction)
+                return mFunction(std::forward<Args>(args)...);
+
+            return ReturnType{};
+        }
+
+        inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
 
     private:
-        std::function<void (Args...)> mFunction;
+        FuncType* mFunction{};
 };
 
-template <typename ... Args>
-Delegate<Args...>::Delegate(std::function<void (Args...)> func) { bind(func); }
-template <typename ... Args> template <typename ClassType>
-Delegate<Args...>::Delegate(ClassType* instance, void (ClassType::*method)(Args...)) { bind(instance, method); }
+template <typename Func>
+class Delegate<Func, EnableIF<isMemberFunction<Func>>> {
+    NO_COPY_AND_MOVE(Delegate);
 
-template <typename ... Args>
-void Delegate<Args...>::bind(std::function<void (Args...)> func) { mFunction = std::move(func); }
-template <typename ... Args> template <typename ClassType>
-void Delegate<Args...>::bind(ClassType* instance, void (ClassType::*method)(Args...)) {
-    mFunction = [instance, method](Args... args) {
-        (instance->*method)(args...);
-    };
-}
+    using Traits     = MemberFuncTraits<Func>;
+    using ReturnType = Traits::ReturnType;
+    using ClassType  = Traits::ClassType;
+    using FuncType   = Traits::Type;
 
-template <typename ... Args> template <typename ... CallArgs>
-void Delegate<Args...>::execute(CallArgs&&... args) {
-    static_assert(
-        sizeof...(Args) == sizeof...(CallArgs),
-        "Delegate::execute() called with wrong number of arguments"
-    );
-    static_assert(
-        areSame<TypeList<RemoveCR<Args>...>, TypeList<RemoveCR<CallArgs>...>>,
-        "Delegate::execute() called with incompatible argument types"
-    );
+    public:
+        Delegate() noexcept = default;
+        ~Delegate() noexcept = default;
 
-    if (mFunction)
-        mFunction(std::forward<CallArgs>(args)...);
-}
+        template <typename ... Args>
+        inline ReturnType operator()(Args&&... args) const;
 
-template <typename ... Args>
-inline constexpr unsigned int Delegate<Args...>::argsCount() const noexcept { return sizeof...(Args); }
+        void bind(ClassType* instance, Func method) noexcept {
+            mInstance = instance;
+            mFunction = method;
+        }
+
+        template <typename ... Args>
+        inline ReturnType execute(Args&&... args) const  {
+            // compare types with decayed?
+            static_assert(
+                areSame<typename Traits::ArgsList, TypeList<Args...>>,
+                "Delegate::execute() called with wrong number of arguments or different types"
+            );
+
+            // when ReturnType is void -> ?
+
+            if (mInstance and mFunction)
+                return (mInstance->*mFunction)(std::forward<Args>(args)...);
+
+            return ReturnType{};
+        }
+
+        inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
+
+    private:
+        ClassType* mInstance{};
+        FuncType   mFunction{};
+};
