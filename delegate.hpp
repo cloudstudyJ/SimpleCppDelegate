@@ -48,12 +48,16 @@ class Delegate<Func, EnableIF<isFunction<Func>>> {
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
-            // when ReturnType is void -> ?
+            if constexpr (isSame<ReturnType, void>) {
+                if (mFunction)
+                    mFunction(std::forward<Args>(args)...);
+            }
+            else {
+                if (mFunction)
+                    return mFunction(std::forward<Args>(args)...);
 
-            if (mFunction)
-                return mFunction(std::forward<Args>(args)...);
-
-            return ReturnType{};
+                return ReturnType{};
+            }
         }
 
         inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
@@ -91,12 +95,16 @@ class Delegate<Func, EnableIF<isMemberFunction<Func>>> {
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
-            // when ReturnType is void -> ?
+            if constexpr (isSame<ReturnType, void>) {
+                if (mInstance and mFunction)
+                    (mInstance->*mFunction)(std::forward<Args>(args)...);
+            }
+            else {
+                if (mInstance and mFunction)
+                    return (mInstance->*mFunction)(std::forward<Args>(args)...);
 
-            if (mInstance and mFunction)
-                return (mInstance->*mFunction)(std::forward<Args>(args)...);
-
-            return ReturnType{};
+                return ReturnType{};
+            }
         }
 
         inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
