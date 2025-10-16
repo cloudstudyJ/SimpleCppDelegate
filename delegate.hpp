@@ -24,7 +24,7 @@ template <typename, typename = void>
 class Delegate { NO_INSTANTIATION(Delegate); };
 
 template <typename Func>
-class Delegate<Func, EnableIF<isFunction<Func>>> {
+class Delegate<Func, EnableIF_T<isFunction_v<Func>>> {
     NO_COPY_AND_MOVE(Delegate);
 
     using Traits     = FuncTraits<Func>;
@@ -44,11 +44,11 @@ class Delegate<Func, EnableIF<isFunction<Func>>> {
         inline ReturnType execute(Args&&... args) const {
             // compare types with decayed?
             static_assert(
-                areSame<typename Traits::ArgsList, TypeList<Args...>>,
+                areSame_v<typename Traits::ArgsList, TypeList<Args...>>,
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
-            if constexpr (isSame<ReturnType, void>) {
+            if constexpr (isVoid_v<ReturnType>) {
                 if (mFunction)
                     mFunction(std::forward<Args>(args)...);
             }
@@ -67,7 +67,7 @@ class Delegate<Func, EnableIF<isFunction<Func>>> {
 };
 
 template <typename Func>
-class Delegate<Func, EnableIF<isMemberFunction<Func>>> {
+class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
     NO_COPY_AND_MOVE(Delegate);
 
     using Traits     = MemberFuncTraits<Func>;
@@ -91,11 +91,11 @@ class Delegate<Func, EnableIF<isMemberFunction<Func>>> {
         inline ReturnType execute(Args&&... args) const  {
             // compare types with decayed?
             static_assert(
-                areSame<typename Traits::ArgsList, TypeList<Args...>>,
+                areSame_v<typename Traits::ArgsList, TypeList<Args...>>,
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
-            if constexpr (isSame<ReturnType, void>) {
+            if constexpr (isVoid_v<ReturnType>) {
                 if (mInstance and mFunction)
                     (mInstance->*mFunction)(std::forward<Args>(args)...);
             }
