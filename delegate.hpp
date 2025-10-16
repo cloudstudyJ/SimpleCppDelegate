@@ -20,6 +20,15 @@
     NO_COPY_AND_MOVE(ClassName)     \
     NO_DYNAMIC_ALLOCATION()
 
+/**
+ * TODO
+ *   1. operator() definition
+ *   2. check ReturnType compatiblity
+ *   3. support lambda, functor
+ *   4. check C-style variadic arguments function
+ *   5. add type-erasure idiom
+ */
+
 template <typename, typename = void>
 class Delegate { NO_INSTANTIATION(Delegate); };
 
@@ -42,9 +51,8 @@ class Delegate<Func, EnableIF_T<isFunction_v<Func>>> {
 
         template <typename ... Args>
         inline ReturnType execute(Args&&... args) const {
-            // compare types with decayed?
             static_assert(
-                areSame_v<typename Traits::ArgsList, TypeList<Args...>>,
+                areTypesCompatible_v<typename Traits::ArgsList, TypeList<Args...>>,
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
@@ -89,9 +97,8 @@ class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
 
         template <typename ... Args>
         inline ReturnType execute(Args&&... args) const  {
-            // compare types with decayed?
             static_assert(
-                areSame_v<typename Traits::ArgsList, TypeList<Args...>>,
+                areTypesCompatible_v<typename Traits::ArgsList, TypeList<Args...>>,
                 "Delegate::execute() called with wrong number of arguments or different types"
             );
 
