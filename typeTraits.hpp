@@ -7,6 +7,7 @@ namespace __TypeTraitsBase {
     using FalseType = ConstantValue<bool, false>;
     using TrueType  = ConstantValue<bool, true>;
 
+    #pragma region(Remove__Traits)
     template <typename T> struct RemoveConst          { using Type = T; };
     template <typename T> struct RemoveConst<T const> { using Type = T; };
     template <typename T> using RemoveConst_T = typename RemoveConst<T>::Type;
@@ -23,6 +24,10 @@ namespace __TypeTraitsBase {
 
     template <typename T> struct RemoveCR { using Type = RemoveConst_T<RemoveRef_T<T>>; };
     template <typename T> using RemoveCR_T = typename RemoveCR<T>::Type;
+
+    template <typename T> struct RemovePR { using Type = RemovePtr_T<RemoveRef_T<T>>; };
+    template <typename T> using RemovePR_T = typename RemovePR<T>::Type;
+    #pragma endregion
 
     template <typename ... Types>
     struct TypeList {};
@@ -41,21 +46,28 @@ namespace __TypeTraitsBase {
     template <bool Condition, typename T = void>
     using EnableIF_T = typename EnableIF<Condition, T>::Type;
 
+    #pragma region(Is__Traits)
     template <typename>   struct IsConst         : FalseType {};
     template <typename T> struct IsConst<T const>: TrueType  {};
+    template <typename T> static inline constexpr bool isConst_v = IsConst<T>::value;
 
     template <typename>   struct IsLValueRef    : FalseType {};
     template <typename T> struct IsLValueRef<T&>: TrueType  {};
+    template <typename T> static inline constexpr bool isLValueRef_v = IsLValueRef<T>::value;
+
     template <typename>   struct IsRValueRef     : FalseType {};
     template <typename T> struct IsRValueRef<T&&>: TrueType  {};
+    template <typename T> static inline constexpr bool isRValueRef_v = IsRValueRef<T>::value;
 
     template <typename T>
     struct IsRef
-        : ConstantValue<bool, IsLValueRef<T>::value or IsRValueRef<T>::value> {};
+        : ConstantValue<bool, isLValueRef_v<T> or isRValueRef_v<T>> {};
+    template <typename T> static inline constexpr bool isRef_v = IsRef<T>::value;
 
     template <typename>   struct IsPtr          : FalseType {};
     template <typename T> struct IsPtr<T*>      : TrueType  {};
     template <typename T> struct IsPtr<T* const>: TrueType  {};
+    template <typename T> static inline constexpr bool isPtr_v = IsPtr<T>::value;
 
     template <typename>
     struct IsFunction
@@ -66,6 +78,7 @@ namespace __TypeTraitsBase {
     template <typename Ret, typename ... Args>
     struct IsFunction<Ret (*)(Args...)>
         : IsFunction<Ret (Args...)> {};
+    template <typename T> static inline constexpr bool isFunction_v = IsFunction<T>::value;
 
     template <typename>
     struct IsMemberFunction
@@ -106,6 +119,7 @@ namespace __TypeTraitsBase {
     template <typename Ret, typename Class, typename ... Args>
     struct IsMemberFunction<Ret (Class::*)(Args...) const && noexcept>
         : TrueType {};
+    template <typename T> static inline constexpr bool isMemberFunction_v = IsMemberFunction<T>::value;
 
     template <typename, typename>
     struct IsSame
@@ -113,6 +127,8 @@ namespace __TypeTraitsBase {
     template <typename T>
     struct IsSame<T, T>
         : TrueType {};
+    template <typename A, typename B>
+    static inline constexpr bool isSame_v = IsSame<A, B>::value;
 
     template <typename, typename>
     struct AreSame
@@ -121,14 +137,18 @@ namespace __TypeTraitsBase {
     struct AreSame<TypeList<Types1...>, TypeList<Types2...>>
         : TypeIF_T<
             (sizeof...(Types1) == sizeof...(Types2)) and
-            (IsSame<Types1, Types2>::value and ...),
+            (isSame_v<Types1, Types2> and ...),
             TrueType,
             FalseType
           > {};
+    template <typename TypeList1, typename TypeList2>
+    static inline constexpr bool areSame_v = AreSame<TypeList1, TypeList2>::value;
 
     template <typename T>
     struct IsVoid
-        : TypeIF_T<IsSame<T, void>::value, TrueType, FalseType> {};
+        : TypeIF_T<isSame_v<T, void>, TrueType, FalseType> {};
+    template <typename T> static inline constexpr bool isVoid_v = IsVoid<T>::value;
+    #pragma endregion
 
     template <typename Ret, typename ... Args>
     struct FuncTraitsBase {
@@ -164,8 +184,8 @@ namespace __TypeTraitsBase {
     struct IsValueTypeCompatible<
         Param, Arg,
         EnableIF_T<
-            (!IsPtr<Param>::value and !IsRef<Param>::value) and
-            !IsPtr<RemoveRef_T<Arg>>::value
+            (!isPtr_v<Param> and !isRef_v<Param>) and
+            !isPtr_v<RemoveRef_T<Arg>>
         >
     >: TrueType {};
 
@@ -176,16 +196,16 @@ namespace __TypeTraitsBase {
     struct IsLValueReferenceTypeCompatible<
         Param, Arg,
         EnableIF_T<
-            (!IsConst<Param>::value and IsLValueRef<Param>::value) and
-            (!IsPtr<RemoveRef_T<Arg>>::value and IsLValueRef<Arg>::value and !IsConst<Arg>::value)
+            (!isConst_v<Param> and isLValueRef_v<Param>) and
+            (!isPtr_v<RemoveRef_T<Arg>> and isLValueRef_v<Arg> and !isConst_v<Arg>)
         >
     >: TrueType {};
     template <typename Param, typename Arg>
     struct IsLValueReferenceTypeCompatible<
         Param, Arg,
         EnableIF_T<
-            (IsConst<Param>::value and IsLValueRef<Param>::value) and
-            !IsPtr<RemoveRef_T<Arg>>::value
+            (isConst_v<Param> and isLValueRef_v<Param>) and
+            !isPtr_v<RemoveRef_T<Arg>>
         >
     >: TrueType {};
 
@@ -196,8 +216,8 @@ namespace __TypeTraitsBase {
     struct IsRValueReferenceTypeCompatible<
         Param, Arg,
         EnableIF_T<
-            IsRValueRef<Param>::value and
-            (!IsPtr<RemoveRef_T<Arg>>::value and !IsLValueRef<Arg>::value)
+            isRValueRef_v<Param> and
+            (!isPtr_v<RemoveRef_T<Arg>> and !isLValueRef_v<Arg>)
         >
     >: TrueType {};
 
@@ -208,8 +228,8 @@ namespace __TypeTraitsBase {
     struct IsPointerTypeCompatible<
         Param, Arg,
         EnableIF_T<
-            IsPtr<RemoveRef_T<Param>>::value and
-            (IsPtr<RemoveRef_T<Arg>>::value and !IsConst<RemovePtr_T<RemoveRef_T<Arg>>>::value or IsConst<RemovePtr_T<RemoveRef_T<Param>>>::value)
+            (isPtr_v<RemoveRef_T<Param>> and isPtr_v<RemoveRef_T<Arg>>) and
+            (!isConst_v<RemovePR_T<Arg>> or isConst_v<RemovePR_T<Param>>)
         >
     >: TrueType {};
 }
@@ -218,6 +238,7 @@ template <typename T> using RemoveConst_T = __TypeTraitsBase::RemoveConst_T<T>;
 template <typename T> using RemoveRef_T   = __TypeTraitsBase::RemoveRef_T<T>;
 template <typename T> using RemovePtr_T   = __TypeTraitsBase::RemovePtr_T<T>;
 template <typename T> using RemoveCR_T    = __TypeTraitsBase::RemoveCR_T<T>;
+template <typename T> using RemovePR_T    = __TypeTraitsBase::RemovePR_T<T>;
 
 template <typename ... Types>
 using TypeList = __TypeTraitsBase::TypeList<Types...>;
@@ -231,16 +252,16 @@ using EnableIF_T = __TypeTraitsBase::EnableIF_T<Condition, T>;
 template <typename T> using FuncTraits       = __TypeTraitsBase::FuncTraits<T>;
 template <typename T> using MemberFuncTraits = __TypeTraitsBase::MemberFuncTraits<T>;
 
-template <typename T> static inline constexpr bool isConst_v           = __TypeTraitsBase::IsConst<T>::value;
-template <typename T> static inline constexpr bool isLValueReference_v = __TypeTraitsBase::IsLValueRef<T>::value;
-template <typename T> static inline constexpr bool isRValueReference_v = __TypeTraitsBase::IsRValueRef<T>::value;
-template <typename T> static inline constexpr bool isReference_v       = __TypeTraitsBase::IsRef<T>::value;
-template <typename T> static inline constexpr bool isPointer_v         = __TypeTraitsBase::IsPtr<T>::value;
-template <typename T> static inline constexpr bool isFunction_v        = __TypeTraitsBase::IsFunction<T>::value;
-template <typename T> static inline constexpr bool isMemberFunction_v  = __TypeTraitsBase::IsMemberFunction<T>::value;
-template <typename T> static inline constexpr bool isVoid_v            = __TypeTraitsBase::IsVoid<T>::value;
+template <typename T> static inline constexpr bool isConst_v           = __TypeTraitsBase::isConst_v<T>;
+template <typename T> static inline constexpr bool isLValueReference_v = __TypeTraitsBase::isLValueRef_v<T>;
+template <typename T> static inline constexpr bool isRValueReference_v = __TypeTraitsBase::isRValueRef_v<T>;
+template <typename T> static inline constexpr bool isReference_v       = __TypeTraitsBase::isRef_v<T>;
+template <typename T> static inline constexpr bool isPointer_v         = __TypeTraitsBase::isPtr_v<T>;
+template <typename T> static inline constexpr bool isFunction_v        = __TypeTraitsBase::isFunction_v<T>;
+template <typename T> static inline constexpr bool isMemberFunction_v  = __TypeTraitsBase::isMemberFunction_v<T>;
+template <typename T> static inline constexpr bool isVoid_v            = __TypeTraitsBase::isVoid_v<T>;
 
 template <typename A, typename B>
-static inline constexpr bool isSame_v = __TypeTraitsBase::IsSame<A, B>::value;
+static inline constexpr bool isSame_v = __TypeTraitsBase::isSame_v<A, B>;
 template <typename TypeList1, typename TypeList2>
-static inline constexpr bool areSame_v = __TypeTraitsBase::AreSame<TypeList1, TypeList2>::value;
+static inline constexpr bool areSame_v = __TypeTraitsBase::areSame_v<TypeList1, TypeList2>;
