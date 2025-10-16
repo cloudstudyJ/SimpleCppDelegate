@@ -190,10 +190,10 @@ namespace __TypeTraitsBase {
     >: TrueType {};
 
     template <typename, typename, typename = void>
-    struct IsLValueReferenceTypeCompatible
+    struct IsLValueRefTypeCompatible
         : FalseType {};
     template <typename Param, typename Arg>
-    struct IsLValueReferenceTypeCompatible<
+    struct IsLValueRefTypeCompatible<
         Param, Arg,
         EnableIF_T<
             (!isConst_v<Param> and isLValueRef_v<Param>) and
@@ -201,7 +201,7 @@ namespace __TypeTraitsBase {
         >
     >: TrueType {};
     template <typename Param, typename Arg>
-    struct IsLValueReferenceTypeCompatible<
+    struct IsLValueRefTypeCompatible<
         Param, Arg,
         EnableIF_T<
             (isConst_v<Param> and isLValueRef_v<Param>) and
@@ -210,10 +210,10 @@ namespace __TypeTraitsBase {
     >: TrueType {};
 
     template <typename, typename, typename = void>
-    struct IsRValueReferenceTypeCompatible
+    struct IsRValueRefTypeCompatible
         : FalseType {};
     template <typename Param, typename Arg>
-    struct IsRValueReferenceTypeCompatible<
+    struct IsRValueRefTypeCompatible<
         Param, Arg,
         EnableIF_T<
             isRValueRef_v<Param> and
@@ -222,14 +222,39 @@ namespace __TypeTraitsBase {
     >: TrueType {};
 
     template <typename, typename, typename = void>
-    struct IsPointerTypeCompatible
+    struct IsRefTypeCompatible
         : FalseType {};
     template <typename Param, typename Arg>
-    struct IsPointerTypeCompatible<
+    struct IsRefTypeCompatible<
+        Param, Arg,
+        EnableIF_T<
+            IsLValueRefTypeCompatible<Param, Arg>::value or
+            IsRValueRefTypeCompatible<Param, Arg>::value
+        >
+    >: TrueType {};
+
+    template <typename, typename, typename = void>
+    struct IsPtrTypeCompatible
+        : FalseType {};
+    template <typename Param, typename Arg>
+    struct IsPtrTypeCompatible<
         Param, Arg,
         EnableIF_T<
             (isPtr_v<RemoveRef_T<Param>> and isPtr_v<RemoveRef_T<Arg>>) and
             (!isConst_v<RemovePR_T<Arg>> or isConst_v<RemovePR_T<Param>>)
+        >
+    >: TrueType {};
+
+    template <typename, typename, typename = void>
+    struct IsTypeCompatible
+        : FalseType {};
+    template <typename Param, typename Arg>
+    struct IsTypeCompatible<
+        Param, Arg,
+        EnableIF_T<
+            IsValueTypeCompatible<Param, Arg>::value or
+            IsRefTypeCompatible<Param, Arg>::value or
+            IsPtrTypeCompatible<Param, Arg>::value
         >
     >: TrueType {};
 }
