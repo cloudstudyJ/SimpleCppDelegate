@@ -5,7 +5,6 @@
  *   1. check array type compatible?
  *   2. if Param is ptr -> check base?
  *   3. check convertible to other types
- *   4. change from ConstantValue inheritance to BoolConstant
  */
 
 namespace __TypeTraitsBase {
@@ -72,7 +71,10 @@ namespace __TypeTraitsBase {
 
     template <typename T>
     struct IsRef
-        : ConstantValue<bool, isLValueRef_v<T> or isRValueRef_v<T>> {};
+        : BoolConstant<
+            isLValueRef_v<T> or
+            isRValueRef_v<T>
+          > {};
     template <typename T> static inline constexpr bool isRef_v = IsRef<T>::value;
 
     template <typename>   struct IsPtr          : FalseType {};
@@ -146,8 +148,7 @@ namespace __TypeTraitsBase {
         : FalseType {};
     template <typename ... Types1, typename ... Types2>
     struct AreSame<TypeList<Types1...>, TypeList<Types2...>>
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             (sizeof...(Types1) == sizeof...(Types2)) and
             (isSame_v<Types1, Types2> and ...)
           > {};
@@ -156,7 +157,7 @@ namespace __TypeTraitsBase {
 
     template <typename T>
     struct IsVoid
-        : ConstantValue<bool, isSame_v<T, void>> {};
+        : BoolConstant<isSame_v<T, void>> {};
     template <typename T> static inline constexpr bool isVoid_v = IsVoid<T>::value;
     #pragma endregion
 
@@ -189,8 +190,7 @@ namespace __TypeTraitsBase {
 
     template <typename Param, typename Arg>
     struct IsValueTypeCompatible
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             (!isPtr_v<Param> and !isRef_v<Param>) and
             !isPtr_v<RemoveRef_T<Arg>>
           > {};
@@ -199,8 +199,7 @@ namespace __TypeTraitsBase {
 
     template <typename Param, typename Arg>
     struct IsLValueRefTypeCompatible
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             // check non-const l-value reference type of Param
             ((!isConst_v<Param> and isLValueRef_v<Param>) and
             (!isPtr_v<RemoveRef_T<Arg>> and isLValueRef_v<Arg> and !isConst_v<Arg>))
@@ -214,8 +213,7 @@ namespace __TypeTraitsBase {
 
     template <typename Param, typename Arg>
     struct IsRValueRefTypeCompatible
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             isRValueRef_v<Param> and
             (!isPtr_v<RemoveRef_T<Arg>> and !isLValueRef_v<Arg>)
           > {};
@@ -224,18 +222,16 @@ namespace __TypeTraitsBase {
 
     template <typename Param, typename Arg>
     struct IsRefTypeCompatible
-        : ConstantValue<
-            bool,
-            IsLValueRefTypeCompatible<Param, Arg>::value or
-            IsRValueRefTypeCompatible<Param, Arg>::value
+        : BoolConstant<
+            isLValueRefTypeCompatible_v<Param, Arg> or
+            isRValueRefTypeCompatible_v<Param, Arg>
           > {};
     template <typename Param, typename Arg>
     static inline constexpr bool isRefTypeCompatible_v = IsRefTypeCompatible<Param, Arg>::value;
 
     template <typename Param, typename Arg>
     struct IsPtrTypeCompatible
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             (isPtr_v<RemoveRef_T<Param>> and isPtr_v<RemoveRef_T<Arg>>) and
             (!isConst_v<RemovePR_T<Arg>> or isConst_v<RemovePR_T<Param>>)
           > {};
@@ -244,11 +240,10 @@ namespace __TypeTraitsBase {
 
     template <typename Param, typename Arg>
     struct IsTypeCompatible
-        : ConstantValue<
-            bool,
-            IsValueTypeCompatible<Param, Arg>::value or
-            IsRefTypeCompatible<Param, Arg>::value or
-            IsPtrTypeCompatible<Param, Arg>::value
+        : BoolConstant<
+            isValueTypeCompatible_v<Param, Arg> or
+            isRefTypeCompatible_v<Param,Arg> or
+            isPtrTypeCompatible_v<Param, Arg>
           > {};
     template <typename Param, typename Arg>
     static inline constexpr bool isTypeCompatible_v = IsTypeCompatible<Param, Arg>::value;
@@ -258,13 +253,12 @@ namespace __TypeTraitsBase {
         : FalseType {};
     template <typename ... Types1, typename ... Types2>
     struct AreTypesCompatible<TypeList<Types1...>, TypeList<Types2...>>
-        : ConstantValue<
-            bool,
+        : BoolConstant<
             (sizeof...(Types1) == sizeof...(Types2)) and
             (isTypeCompatible_v<Types1, Types2> and ...)
           > {};
     template <typename TypeList1, typename TypeList2>
-    static inline constexpr bool areTypeCompatible_v = AreTypesCompatible<TypeList1, TypeList2>::value;
+    static inline constexpr bool areTypesCompatible_v = AreTypesCompatible<TypeList1, TypeList2>::value;
 }
 
 template <typename T> using RemoveConst_T = __TypeTraitsBase::RemoveConst_T<T>;
@@ -302,4 +296,4 @@ static inline constexpr bool areSame_v = __TypeTraitsBase::areSame_v<TypeList1, 
 template <typename Param, typename Arg>
 static inline constexpr bool isTypeCompatible_v = __TypeTraitsBase::isTypeCompatible_v<Param, Arg>;
 template <typename TypeList1, typename TypeList2>
-static inline constexpr bool areTypesCompatible_v = __TypeTraitsBase::areTypeCompatible_v<TypeList1, TypeList2>;
+static inline constexpr bool areTypesCompatible_v = __TypeTraitsBase::areTypesCompatible_v<TypeList1, TypeList2>;
