@@ -22,11 +22,10 @@
 
 /**
  * TODO
- *   1. operator() definition
- *   2. check ReturnType compatiblity
- *   3. support lambda, functor
- *   4. check C-style variadic arguments function
- *   5. add type-erasure idiom
+ *   1. support lambda, functor
+ *   2. check C-style variadic arguments function
+ *   3. add type-erasure idiom
+ *   4. apply CTAD
  */
 
 template <typename, typename = void>
@@ -36,8 +35,9 @@ template <typename Func>
 class Delegate<Func, EnableIF_T<isFunction_v<Func>>> {
     NO_COPY_AND_MOVE(Delegate);
 
-    using Traits     = FuncTraits<Func>;
+    using Traits     = FunctionTrait<Func>;
     using ReturnType = Traits::ReturnType;
+    using ParamList  = Traits::ParamList;
     using FuncType   = Traits::Type;
 
     public:
@@ -45,15 +45,25 @@ class Delegate<Func, EnableIF_T<isFunction_v<Func>>> {
         ~Delegate() noexcept = default;
 
         template <typename ... Args>
-        inline ReturnType operator()(Args&&... args) const;
+        inline ReturnType operator()(Args&&... args) const {
+            if constexpr (isVoid_v<ReturnType>)
+                execute(std::forward<Args>(args)...);
+
+            else
+                return execute(std::forward<Args>(args)...);
+        }
 
         void bind(Func func) noexcept { mFunction = func; }
 
         template <typename ... Args>
         inline ReturnType execute(Args&&... args) const {
             static_assert(
-                areTypesCompatible_v<typename Traits::ArgsList, TypeList<Args...>>,
-                "Delegate::execute() called with wrong number of arguments or different types"
+                Traits::paramsCount == sizeof...(Args),
+                "Delegate::execute() arguments count mismatch"
+            );
+            static_assert(
+                areCallCompatible_v<ParamList, TypeList<Args...>>,
+                "Delegate::execute() incompatible argument types"
             );
 
             if constexpr (isVoid_v<ReturnType>) {
@@ -68,7 +78,7 @@ class Delegate<Func, EnableIF_T<isFunction_v<Func>>> {
             }
         }
 
-        inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
+        inline constexpr unsigned int paramsCount() const noexcept { return Traits::paramsCount; }
 
     private:
         FuncType* mFunction{};
@@ -78,9 +88,10 @@ template <typename Func>
 class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
     NO_COPY_AND_MOVE(Delegate);
 
-    using Traits     = MemberFuncTraits<Func>;
+    using Traits     = MemberFunctionTrait<Func>;
     using ReturnType = Traits::ReturnType;
     using ClassType  = Traits::ClassType;
+    using ParamList  = Traits::ParamList;
     using FuncType   = Traits::Type;
 
     public:
@@ -88,7 +99,13 @@ class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
         ~Delegate() noexcept = default;
 
         template <typename ... Args>
-        inline ReturnType operator()(Args&&... args) const;
+        inline ReturnType operator()(Args&&... args) const {
+            if constexpr (isVoid_v<ReturnType>)
+                execute(std::forward<Args>(args)...);
+
+            else
+                return execute(std::forward<Args>(args)...);
+        }
 
         void bind(ClassType* instance, Func method) noexcept {
             mInstance = instance;
@@ -98,8 +115,12 @@ class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
         template <typename ... Args>
         inline ReturnType execute(Args&&... args) const  {
             static_assert(
-                areTypesCompatible_v<typename Traits::ArgsList, TypeList<Args...>>,
-                "Delegate::execute() called with wrong number of arguments or different types"
+                Traits::paramsCount == sizeof...(Args),
+                "Delegate::execute() arguments count mismatch"
+            );
+            static_assert(
+                areCallCompatible_v<ParamList, TypeList<Args...>>,
+                "Delegate::execute() incompatible argument types"
             );
 
             if constexpr (isVoid_v<ReturnType>) {
@@ -114,7 +135,7 @@ class Delegate<Func, EnableIF_T<isMemberFunction_v<Func>>> {
             }
         }
 
-        inline constexpr unsigned int argsCount() const noexcept { return Traits::argsCount; }
+        inline constexpr unsigned int paramsCount() const noexcept { return Traits::paramsCount; }
 
     private:
         ClassType* mInstance{};
