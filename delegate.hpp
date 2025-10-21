@@ -22,10 +22,9 @@
 
 /**
  * TODO
- *   1. support lambda, functor
- *   2. check C-style variadic arguments function
- *   3. add type-erasure idiom
- *   4. apply CTAD
+ *   1. support lambda, functor (wip)
+ *   2. add type-erasure idiom
+ *   3. apply CTAD
  */
 
 template <typename, typename = void>

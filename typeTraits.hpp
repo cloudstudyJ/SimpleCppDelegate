@@ -16,48 +16,26 @@ namespace __TypeTraitsBase {
         template <typename A, typename B>                               \
         static inline constexpr bool aliasName = traitName<A, B>::value
 
-    #define IN_GENERATE_IS_FUNCTION_SPECIALIZATION(qualifiers, ...)             \
-        template <typename Ret, typename ... Params>                            \
-        struct IsFunction<Ret (Params... __VA_OPT__(,) __VA_ARGS__) qualifiers> \
-            : TrueType {}
-
-    #define IN_GENERATE_IS_FUNCTION_PTR_SPECIALIZATION(qualifiers, ...)                 \
-        template <typename Ret, typename ... Params>                                    \
-        struct IsFunctionPtr<Ret (*)(Params... __VA_OPT__(,) __VA_ARGS__) qualifiers>   \
-            : TrueType {}
-
-    #define IN_GENERATE_IS_FUNCTION_REF_SPECIALIZATION(qualifiers, ...)                 \
-        template <typename Ret, typename ... Params>                                    \
-        struct IsFunctionRef<Ret (&)(Params... __VA_OPT__(,) __VA_ARGS__) qualifiers>   \
-            : TrueType {}
-
     #define IN_GENERATE_IS_MEMBER_FUNCTION_SPECIALIZATION(qualifiers, ...)                      \
         template <typename Ret, typename Class, typename ... Params>                            \
         struct IsMemberFunction<Ret (Class::*)(Params... __VA_OPT__(,) __VA_ARGS__) qualifiers> \
             : TrueType {}
 
-    #define IN_DEFINE_IS_FUNCTION_SPECIALIZATION(qualifiers)        \
-        IN_GENERATE_IS_FUNCTION_SPECIALIZATION(qualifiers);         \
-        IN_GENERATE_IS_FUNCTION_SPECIALIZATION(qualifiers, ...);
-
-    #define IN_DEFINE_IS_FUNCTION_PTR_SPECIALIZATION(qualifiers)        \
-        IN_GENERATE_IS_FUNCTION_PTR_SPECIALIZATION(qualifiers);         \
-        IN_GENERATE_IS_FUNCTION_PTR_SPECIALIZATION(qualifiers, ...);
-
-    #define IN_DEFINE_IS_FUNCTION_REF_SPECIALIZATION(qualifiers)        \
-        IN_GENERATE_IS_FUNCTION_REF_SPECIALIZATION(qualifiers);         \
-        IN_GENERATE_IS_FUNCTION_REF_SPECIALIZATION(qualifiers, ...);
-
     #define IN_DEFINE_IS_MEMBER_FUNCTION_SPECIALIZATION(qualifiers)     \
         IN_GENERATE_IS_MEMBER_FUNCTION_SPECIALIZATION(qualifiers);      \
         IN_GENERATE_IS_MEMBER_FUNCTION_SPECIALIZATION(qualifiers, ...);
 
-    #define IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(funcType)           \
-        template <typename Ret, typename Class, typename ... Params>    \
-        struct MemberFunctionTrait<funcType>                            \
-            : FunctionTraitBase<Ret, Params...> {                       \
-            using ClassType = Class;                                    \
-            using Type      = funcType;                                 \
+    #define IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(funcType)           \
+    template <typename Ret, typename ... Params>                        \
+    struct FunctionTrait<funcType>                                      \
+        : FunctionTraitBase<Ret, Params...> { using Type = funcType; }
+
+    #define IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(qualifiers)      \
+        template <typename Ret, typename Class, typename ... Params>        \
+        struct MemberFunctionTrait<Ret (Class::*)(Params...) qualifiers>    \
+            : FunctionTraitBase<Ret, Params...> {                           \
+            using ClassType = Class;                                        \
+            using Type      = Ret (Class::*)(Params...) qualifiers;         \
         }
 
     template <typename T, T Value>
@@ -90,6 +68,9 @@ namespace __TypeTraitsBase {
     template <typename T> struct RemovePR { using Type = RemovePtr_T<RemoveRef_T<T>>; };
     template <typename T> using RemovePR_T = typename RemovePR<T>::Type;
     #pragma endregion
+
+    template <typename ...>
+    using Void_T = void;
 
     template <typename ... Types>
     struct TypeList {};
@@ -125,19 +106,67 @@ namespace __TypeTraitsBase {
     template <typename T> struct IsPtr<T* const>: TrueType  {};
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isPtr_v, IsPtr);
 
-    template <typename> struct IsFunction: FalseType {};
-    IN_DEFINE_IS_FUNCTION_SPECIALIZATION();
-    IN_DEFINE_IS_FUNCTION_SPECIALIZATION(noexcept);
+    template <typename> struct IsVoid      : FalseType {};
+    template <>         struct IsVoid<void>: TrueType  {};
+    IN_DEFINE_VALUE_TRAIT_1_PARAM(isVoid_v, IsVoid);
+
+    template <typename, typename = void>
+    struct IsClass
+        : FalseType {};
+    template <typename T>
+    struct IsClass<T, Void_T<int RemovePR_T<T>::*>>
+        : TrueType {};
+    IN_DEFINE_VALUE_TRAIT_1_PARAM(isClass_v, IsClass);
+
+    template <typename>
+    struct IsFunction
+        : FalseType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunction<Ret (Params...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunction<Ret (Params...) noexcept>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunction<Ret (Params..., ...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunction<Ret (Params..., ...) noexcept>
+        : TrueType {};
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isFunction_v, IsFunction);
 
-    template <typename> struct IsFunctionPtr: FalseType {};
-    IN_DEFINE_IS_FUNCTION_PTR_SPECIALIZATION();
-    IN_DEFINE_IS_FUNCTION_PTR_SPECIALIZATION(noexcept);
+    template <typename>
+    struct IsFunctionPtr
+        : FalseType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionPtr<Ret (*)(Params...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionPtr<Ret (*)(Params...) noexcept>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionPtr<Ret (*)(Params..., ...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionPtr<Ret (*)(Params..., ...) noexcept>
+        : TrueType {};
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isFunctionPtr_v, IsFunctionPtr);
 
-    template <typename> struct IsFunctionRef: FalseType {};
-    IN_DEFINE_IS_FUNCTION_REF_SPECIALIZATION();
-    IN_DEFINE_IS_FUNCTION_REF_SPECIALIZATION(noexcept);
+    template <typename>
+    struct IsFunctionRef
+        : FalseType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionRef<Ret (&)(Params...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionRef<Ret (&)(Params...) noexcept>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionRef<Ret (&)(Params..., ...)>
+        : TrueType {};
+    template <typename Ret, typename ... Params>
+    struct IsFunctionRef<Ret (&)(Params..., ...) noexcept>
+        : TrueType {};
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isFunctionRef_v, IsFunctionRef);
 
     template <typename> struct IsMemberFunction: FalseType {};
@@ -154,6 +183,25 @@ namespace __TypeTraitsBase {
     IN_DEFINE_IS_MEMBER_FUNCTION_SPECIALIZATION(&& noexcept);
     IN_DEFINE_IS_MEMBER_FUNCTION_SPECIALIZATION(const && noexcept);
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isMemberFunction_v, IsMemberFunction);
+
+    template <typename, typename = void>
+    struct IsFunctor
+        : FalseType {};
+    template <typename T>
+    struct IsFunctor<T, Void_T<decltype(&T::operator())>>
+        : TrueType {};
+    IN_DEFINE_VALUE_TRAIT_1_PARAM(isFunctor_v, IsFunctor);
+
+    template <typename T>
+    struct IsCallable
+        : BoolConstant<
+            isFunction_v<T>       or
+            isFunctionPtr_v<T>    or
+            isFunctionRef_v<T>    or
+            isMemberFunction_v<T> or
+            isFunctor_v<T>
+          > {};
+    IN_DEFINE_VALUE_TRAIT_1_PARAM(isCallable_v, IsCallable);
 
     template <typename, typename> struct IsSame      : FalseType {};
     template <typename T>         struct IsSame<T, T>: TrueType  {};
@@ -180,29 +228,26 @@ namespace __TypeTraitsBase {
     };
 
     template <typename> struct FunctionTrait {};
-    template <typename Ret, typename ... Params>
-    struct FunctionTrait<Ret (Params...)>
-        : FunctionTraitBase<Ret, Params...> { using Type = Ret (Params...); };
-    template <typename Ret, typename ... Params>
-    struct FunctionTrait<Ret (*)(Params...)>
-        : FunctionTraitBase<Ret, Params...> { using Type = Ret (*)(Params...); };
-    template <typename Ret, typename ... Params>
-    struct FunctionTrait<Ret (&)(Params...)>
-        : FunctionTraitBase<Ret, Params...> { using Type = Ret (&)(Params...); };
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (Params...));
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (*)(Params...));
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (&)(Params...));
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (Params...) noexcept);
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (*)(Params...) noexcept);
+    IN_DEFINE_FUNCTION_TRAIT_SPECIALIZATION(Ret (&)(Params...) noexcept);
 
     template <typename> struct MemberFunctionTrait {};
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...));
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) noexcept);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const noexcept);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) &);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const &);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) & noexcept);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const & noexcept);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) &&);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const &&);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) && noexcept);
-    IN_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(Ret (Class::*)(Params...) const && noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION();
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(&);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const &);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(& noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const & noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(&&);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const &&);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(&& noexcept);
+    IN_DEFINE_MEMBER_FUNCTION_TRAIT_SPECIALIZATION(const && noexcept);
 
     template <typename Param, typename Arg>
     struct IsValueCallCompatible
@@ -303,6 +348,9 @@ EX_DEFINE_VALUE_TRAIT_1_PARAM(isFunctionPtr_v, Type);
 EX_DEFINE_VALUE_TRAIT_1_PARAM(isFunctionRef_v, Type);
 EX_DEFINE_VALUE_TRAIT_1_PARAM(isMemberFunction_v, Type);
 EX_DEFINE_VALUE_TRAIT_1_PARAM(isVoid_v, Type);
+EX_DEFINE_VALUE_TRAIT_1_PARAM(isClass_v, Type);
+EX_DEFINE_VALUE_TRAIT_1_PARAM(isFunctor_v, Type);
+EX_DEFINE_VALUE_TRAIT_1_PARAM(isCallable_v, Type);
 
 EX_DEFINE_VALUE_TRAIT_2_PARAMS(isSame_v, Type1, Type2);
 EX_DEFINE_VALUE_TRAIT_2_PARAMS(areSame_v, TypeList1, TypeList2);
