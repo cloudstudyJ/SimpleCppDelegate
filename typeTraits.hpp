@@ -27,14 +27,14 @@ namespace __TypeTraitsBase {
         template <typename A, typename B>                               \
         static inline constexpr bool aliasName = traitName<A, B>::value
 
-    #define IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(templateParams, specName, funcType, qualifiers, ...)    \
+    #define IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(templateParams, traitName, funcType, qualifiers, ...)   \
         templateParams                                                                                          \
-        struct specName<Ret funcType(Params... __VA_OPT__(,) __VA_ARGS__) qualifiers>                           \
+        struct traitName<Ret funcType(Params... __VA_OPT__(,) __VA_ARGS__) qualifiers>                          \
             : TrueType {}
 
-    #define IN_DEFINE_IS_FUNCTION_TYPE_SPECIALIZATION(specName, funcType, qualifiers)                               \
-        IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(IN_TEMPLATE_PARAMS_FUNC, specName, funcType, qualifiers,);      \
-        IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(IN_TEMPLATE_PARAMS_FUNC, specName, funcType, qualifiers, ...)
+    #define IN_DEFINE_IS_FUNCTION_TYPE_SPECIALIZATION(traitName, funcType, qualifiers)                               \
+        IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(IN_TEMPLATE_PARAMS_FUNC, traitName, funcType, qualifiers,);      \
+        IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(IN_TEMPLATE_PARAMS_FUNC, traitName, funcType, qualifiers, ...)
 
     #define IN_DEFINE_IS_MEMBER_FUNCTION_SPECIALIZATION(qualifiers)                                                                 \
         IN_GENERATE_IS_FUNCTION_TYPE_SPECIALIZATION(IN_TEMPLATE_PARAMS_CLASS, IsMemberFunction, IN_FUNC_MEM_TYPE, qualifiers,);     \
@@ -83,6 +83,9 @@ namespace __TypeTraitsBase {
 
     template <typename T> struct RemovePR { using Type = RemovePtr_T<RemoveRef_T<T>>; };
     template <typename T> using RemovePR_T = typename RemovePR<T>::Type;
+
+    template <typename T> struct RemoveCPR { using Type = RemoveConst_T<RemovePR_T<T>>; };
+    template <typename T> using RemoveCPR_T = typename RemoveCPR<T>::Type;
     #pragma endregion
 
     template <typename ...>
@@ -129,6 +132,22 @@ namespace __TypeTraitsBase {
     template <typename, typename = void> struct IsClass                                 : FalseType {};
     template <typename T>                struct IsClass<T, Void_T<int RemovePR_T<T>::*>>: TrueType  {};
     IN_DEFINE_VALUE_TRAIT_1_PARAM(isClass_v, IsClass);
+
+    template <typename Base, typename Derived>
+    struct IsBaseOf {
+        private:
+            using PureBase    = RemoveCPR_T<Base>;
+            using PureDerived = RemoveCPR_T<Derived>;
+
+            static TrueType  test(PureBase*);
+            static FalseType test(...);
+
+        public:
+            static inline constexpr bool value =
+                (!isVoid_v<PureBase> and !isVoid_v<PureDerived>) and
+                decltype(test(static_cast<PureDerived*>(nullptr)))::value;
+    };
+    IN_DEFINE_VALUE_TRAIT_2_PARAMS(isBaseOf_v, IsBaseOf);
 
     template <typename> struct IsFunction: FalseType {};
     IN_DEFINE_IS_FUNCTION_TYPE_SPECIALIZATION(IsFunction, IN_FUNC_TYPE, IN_EMPTY);
@@ -330,3 +349,4 @@ EX_DEFINE_VALUE_TRAIT_2_PARAMS(isSame_v, Type1, Type2);
 EX_DEFINE_VALUE_TRAIT_2_PARAMS(areSame_v, TypeList1, TypeList2);
 EX_DEFINE_VALUE_TRAIT_2_PARAMS(isCallCompatible_v, Param, Arg);
 EX_DEFINE_VALUE_TRAIT_2_PARAMS(areCallCompatible_v, TypeList1, TypeList2);
+EX_DEFINE_VALUE_TRAIT_2_PARAMS(isBaseOf_v, Base, Derived);
